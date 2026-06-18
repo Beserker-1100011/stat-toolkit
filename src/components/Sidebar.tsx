@@ -16,6 +16,7 @@ import {
   Dice1,
   ClipboardCheck,
   FileSpreadsheet,
+  BookOpen,
 } from 'lucide-react'
 
 const navItems = [
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/report', icon: FileSpreadsheet, label: 'Report' },
   { to: '/insights', icon: Sparkles, label: 'AI Insights' },
   { to: '/cli', icon: Terminal, label: 'CLI Guide' },
+  { to: '/guide', icon: BookOpen, label: 'User Guide' },
 ]
 
 export function Sidebar() {

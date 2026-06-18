@@ -15,6 +15,7 @@ import NormalityToolkit from '@/pages/NormalityToolkit'
 import ReportGenerator from '@/pages/ReportGenerator'
 import AIInsights from '@/pages/AIInsights'
 import CLIGuide from '@/pages/CLIGuide'
+import UserGuide from '@/pages/UserGuide'
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="text-analysis" element={<TextAnalysis />} />
             <Route path="insights" element={<AIInsights />} />
             <Route path="cli" element={<CLIGuide />} />
+            <Route path="guide" element={<UserGuide />} />
           </Route>
         </Routes>
       </AnimatePresence>
