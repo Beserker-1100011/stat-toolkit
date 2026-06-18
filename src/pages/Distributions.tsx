@@ -139,7 +139,7 @@ function PDF({ data }: { data: Record<string, unknown>[] }) {
 }
 
 export default function Distributions() {
-  const { fullData } = useDatasetStore()
+  const { fullData, computeData } = useDatasetStore()
 
   return (
     <div className="space-y-8">
@@ -166,7 +166,7 @@ export default function Distributions() {
               <CardTitle>PMF — Categorical</CardTitle>
             </CardHeader>
             <CardContent>
-              <PMF data={fullData} />
+              <PMF data={computeData} />
             </CardContent>
           </Card>
           <Card>
@@ -174,7 +174,7 @@ export default function Distributions() {
               <CardTitle>PDF — Normal Curve</CardTitle>
             </CardHeader>
             <CardContent>
-              <PDF data={fullData} />
+              <PDF data={computeData} />
             </CardContent>
           </Card>
         </div>

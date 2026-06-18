@@ -53,7 +53,7 @@ function QQPlot({ data }: { data: { theoretical: number; observed: number }[] })
 }
 
 export default function CentralLimitTheorem() {
-  const { fullData, columnMetadata, addActivity } = useDatasetStore()
+  const { fullData, computeData, columnMetadata, addActivity } = useDatasetStore()
   const [col, setCol] = useState('')
   const [numSims, setNumSims] = useState(500)
   const [results, setResults] = useState<{
@@ -66,7 +66,7 @@ export default function CentralLimitTheorem() {
 
   const simulate = () => {
     if (!col) return
-    const vals = fullData.map((r) => Number(r[col])).filter((v) => !isNaN(v))
+    const vals = computeData.map((r) => Number(r[col])).filter((v) => !isNaN(v))
     if (vals.length < 5) return
 
     const m10 = simulateMeans(vals, 10, numSims)

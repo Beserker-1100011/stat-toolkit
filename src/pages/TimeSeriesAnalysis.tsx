@@ -8,14 +8,14 @@ import { TrendingUp } from 'lucide-react'
 import * as ss from 'simple-statistics'
 
 export default function TimeSeriesAnalysis() {
-  const { fullData, columnMetadata, addActivity } = useDatasetStore()
+  const { fullData, computeData, columnMetadata, addActivity } = useDatasetStore()
   const [col, setCol] = useState('')
 
   const numericCols = columnMetadata.filter((c) => c.type === 'numeric')
 
   const forecastData = useMemo(() => {
     if (!col) return []
-    const vals = fullData
+    const vals = computeData
       .map((r, i) => ({ index: i, value: Number(r[col]) }))
       .filter((v) => !isNaN(v.value))
     if (vals.length < 3) return []
@@ -29,7 +29,7 @@ export default function TimeSeriesAnalysis() {
       actual: v.value,
       trend: lineFn(v.index),
     }))
-  }, [fullData, col])
+  }, [computeData, col])
 
   const handleCompute = () => {
     if (col) {

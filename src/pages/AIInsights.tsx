@@ -5,7 +5,7 @@ import { Sparkles, AlertTriangle, CheckCircle, Info } from 'lucide-react'
 import * as ss from 'simple-statistics'
 
 export default function AIInsights() {
-  const { fullData, columnMetadata, fileName } = useDatasetStore()
+  const { fullData, computeData, columnMetadata, fileName } = useDatasetStore()
 
   const report = useMemo(() => {
     if (fullData.length === 0 || columnMetadata.length === 0) return null
@@ -19,7 +19,7 @@ export default function AIInsights() {
     const stats: { col: string; mean: string; std: string; min: string; max: string }[] = []
 
     for (const col of numericCols) {
-      const vals = fullData.map((r) => Number(r[col.name])).filter((v) => !isNaN(v))
+      const vals = computeData.map((r) => Number(r[col.name])).filter((v) => !isNaN(v))
       if (vals.length < 2) continue
 
       const mean = ss.mean(vals)

@@ -247,7 +247,7 @@ function PCA({ data }: { data: Record<string, unknown>[] }) {
 }
 
 export default function MachineLearning() {
-  const { fullData } = useDatasetStore()
+  const { fullData, computeData } = useDatasetStore()
 
   return (
     <div className="space-y-8">
@@ -280,10 +280,10 @@ export default function MachineLearning() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="kmeans">
-            <Card><CardContent className="pt-6"><KMeans data={fullData} /></CardContent></Card>
+            <Card><CardContent className="pt-6"><KMeans data={computeData} /></CardContent></Card>
           </TabsContent>
           <TabsContent value="pca">
-            <Card><CardContent className="pt-6"><PCA data={fullData} /></CardContent></Card>
+            <Card><CardContent className="pt-6"><PCA data={computeData} /></CardContent></Card>
           </TabsContent>
         </Tabs>
       )}

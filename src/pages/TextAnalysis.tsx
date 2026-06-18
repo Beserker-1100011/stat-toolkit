@@ -6,7 +6,7 @@ import { useDatasetStore } from '@/store/datasetStore'
 import { FileText } from 'lucide-react'
 
 export default function TextAnalysis() {
-  const { fullData, columnMetadata, addActivity } = useDatasetStore()
+  const { fullData, computeData, columnMetadata, addActivity } = useDatasetStore()
   const [col, setCol] = useState('')
 
   const catCols = columnMetadata.filter((c) => c.type === 'categorical')
@@ -14,7 +14,7 @@ export default function TextAnalysis() {
   const keywords = useMemo(() => {
     if (!col) return []
     const freq: Record<string, number> = {}
-    for (const row of fullData) {
+    for (const row of computeData) {
       const text = String(row[col] ?? '')
       const words = text
         .toLowerCase()
@@ -29,7 +29,7 @@ export default function TextAnalysis() {
       .map(([word, count]) => ({ word, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 20)
-  }, [fullData, col])
+  }, [computeData, col])
 
   const handleSelect = (value: string) => {
     setCol(value)

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useDatasetStore } from '@/store/datasetStore'
 import { Badge } from '@/components/ui/badge'
@@ -7,10 +7,20 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 25
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(id)
+  }, [value, delay])
+  return debounced
+}
+
 export function DataTable() {
-  const { fullData, columnMetadata } = useDatasetStore()
+  const { fullData, columnMetadata, isSampled, totalRows } = useDatasetStore()
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 200)
 
   const columns = useMemo(
     () => (fullData.length > 0 ? Object.keys(fullData[0]) : []),
@@ -18,14 +28,14 @@ export function DataTable() {
   )
 
   const filtered = useMemo(() => {
-    if (!search) return fullData
-    const q = search.toLowerCase()
+    if (!debouncedSearch) return fullData
+    const q = debouncedSearch.toLowerCase()
     return fullData.filter((row) =>
       Object.values(row).some((v) =>
         String(v).toLowerCase().includes(q)
       )
     )
-  }, [fullData, search])
+  }, [fullData, debouncedSearch])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -90,6 +100,7 @@ export function DataTable() {
         <span className="text-sm text-muted">
           {filtered.length} row{filtered.length !== 1 ? 's' : ''}
           {search && ` (filtered from ${fullData.length})`}
+          {isSampled && <span className="ml-2 text-amber-400">(computations use {Math.min(totalRows, 5000).toLocaleString()} sampled rows)</span>}
         </span>
         <div className="flex items-center gap-2">
           <Button

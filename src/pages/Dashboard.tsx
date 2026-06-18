@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 
 export default function Dashboard() {
-  const { fullData, columnMetadata, activityLog, fileName } = useDatasetStore()
+  const { fullData, columnMetadata, activityLog, fileName, totalRows } = useDatasetStore()
 
   const numericCount = columnMetadata.filter((c) => c.type === 'numeric').length
   const categCount = columnMetadata.filter((c) => c.type === 'categorical').length
@@ -29,7 +29,7 @@ export default function Dashboard() {
     },
     {
       label: 'Rows in Memory',
-      value: fullData.length.toLocaleString(),
+      value: totalRows.toLocaleString(),
       icon: LayoutDashboard,
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10',

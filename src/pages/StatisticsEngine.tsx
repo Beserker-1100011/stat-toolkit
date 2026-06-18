@@ -1019,19 +1019,19 @@ function NonParametricTests({ data }: { data: Record<string, unknown>[] }) {
 }
 
 export default function StatisticsEngine() {
-  const { fullData } = useDatasetStore()
+  const { computeData, fullData, addActivity } = useDatasetStore()
 
   const tabs = [
-    { value: 'descriptive', label: 'Descriptive', icon: Sigma, comp: <DescriptiveStats data={fullData} /> },
-    { value: 'correlation', label: 'Correlation', icon: ArrowRightLeft, comp: <CorrelationMatrix data={fullData} /> },
-    { value: 'regression', label: 'Regression', icon: TrendingUp, comp: <LinearRegression data={fullData} /> },
-    { value: 'ztest', label: 'Z-Test', icon: Zap, comp: <ZTest data={fullData} /> },
-    { value: 'onesamplet', label: '1-Sample T', icon: Hash, comp: <OneSampleTTest data={fullData} /> },
-    { value: 'independentsamplet', label: '2-Sample T', icon: ArrowRightLeft, comp: <IndependentTTest data={fullData} /> },
-    { value: 'pairedt', label: 'Paired T', icon: ArrowRightLeft, comp: <PairedTTest data={fullData} /> },
-    { value: 'anova', label: 'ANOVA', icon: Equal, comp: <ANOVA data={fullData} /> },
-    { value: 'chisquare', label: 'Chi-Square', icon: Table, comp: <ChiSquareTests data={fullData} /> },
-    { value: 'nonparametric', label: 'Non-Parametric', icon: ClipboardCheck, comp: <NonParametricTests data={fullData} /> },
+    { value: 'descriptive', label: 'Descriptive', icon: Sigma, comp: <DescriptiveStats data={computeData} /> },
+    { value: 'correlation', label: 'Correlation', icon: ArrowRightLeft, comp: <CorrelationMatrix data={computeData} /> },
+    { value: 'regression', label: 'Regression', icon: TrendingUp, comp: <LinearRegression data={computeData} /> },
+    { value: 'ztest', label: 'Z-Test', icon: Zap, comp: <ZTest data={computeData} /> },
+    { value: 'onesamplet', label: '1-Sample T', icon: Hash, comp: <OneSampleTTest data={computeData} /> },
+    { value: 'independentsamplet', label: '2-Sample T', icon: ArrowRightLeft, comp: <IndependentTTest data={computeData} /> },
+    { value: 'pairedt', label: 'Paired T', icon: ArrowRightLeft, comp: <PairedTTest data={computeData} /> },
+    { value: 'anova', label: 'ANOVA', icon: Equal, comp: <ANOVA data={computeData} /> },
+    { value: 'chisquare', label: 'Chi-Square', icon: Table, comp: <ChiSquareTests data={computeData} /> },
+    { value: 'nonparametric', label: 'Non-Parametric', icon: ClipboardCheck, comp: <NonParametricTests data={computeData} /> },
   ]
 
   return (

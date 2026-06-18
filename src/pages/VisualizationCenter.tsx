@@ -22,7 +22,7 @@ const chartTypes = [
 ] as const
 
 export default function VisualizationCenter() {
-  const { fullData, columnMetadata, addActivity } = useDatasetStore()
+  const { fullData, computeData, columnMetadata, addActivity } = useDatasetStore()
   const [xCol, setXCol] = useState('')
   const [yCol, setYCol] = useState('')
   const [chartType, setChartType] = useState<'bar' | 'scatter' | 'line' | 'histogram' | 'boxplot' | 'cdf'>('bar')
@@ -32,14 +32,14 @@ export default function VisualizationCenter() {
 
   const chartData = useMemo(() => {
     if (!xCol || !yCol) return []
-    return fullData
+    return computeData
       .map((row) => ({ x: row[xCol], y: Number(row[yCol]), label: String(row[xCol] ?? '') }))
       .filter((d) => !isNaN(d.y) && d.label !== '')
-  }, [fullData, xCol, yCol])
+  }, [computeData, xCol, yCol])
 
   const histogramData = useMemo(() => {
     if (!xCol) return []
-    const vals = fullData.map((r) => Number(r[xCol])).filter((v) => !isNaN(v))
+    const vals = computeData.map((r) => Number(r[xCol])).filter((v) => !isNaN(v))
     if (vals.length < 3) return []
     const bins = 25
     const min = Math.min(...vals), max = Math.max(...vals)
@@ -55,32 +55,32 @@ export default function VisualizationCenter() {
       const pdf = (1 / (std * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mean) / std) ** 2)
       return { ...h, pdf: pdf * vals.length * bw }
     })
-  }, [fullData, xCol])
+  }, [computeData, xCol])
 
   const boxplotData = useMemo(() => {
     if (chartType !== 'boxplot') return null
-    const categories = xCol ? [...new Set(fullData.map((r) => String(r[xCol])))] : ['Dataset']
+    const categories = xCol ? [...new Set(computeData.map((r) => String(r[xCol])))] : ['Dataset']
     return categories.slice(0, 10).map((cat) => {
       const vals = xCol
-        ? fullData.map((r) => String(r[xCol]) === cat ? Number(r[yCol]) : NaN).filter((v) => !isNaN(v))
-        : fullData.map((r) => Number(r[yCol])).filter((v) => !isNaN(v))
+        ? computeData.map((r) => String(r[xCol]) === cat ? Number(r[yCol]) : NaN).filter((v) => !isNaN(v))
+        : computeData.map((r) => Number(r[yCol])).filter((v) => !isNaN(v))
       if (vals.length < 4) return null
       const q = iqr(vals)
       const sorted = [...vals].sort((a, b) => a - b)
       return { name: cat, min: sorted[0], q1: q.q1, median: ss.median(sorted), q3: q.q3, max: sorted[sorted.length - 1] }
     }).filter(Boolean) as { name: string; min: number; q1: number; median: number; q3: number; max: number }[]
-  }, [fullData, xCol, yCol, chartType])
+  }, [computeData, xCol, yCol, chartType])
 
   const cdfData = useMemo(() => {
     if (!xCol) return []
-    const vals = fullData.map((r) => Number(r[xCol])).filter((v) => !isNaN(v)).sort((a, b) => a - b)
+    const vals = computeData.map((r) => Number(r[xCol])).filter((v) => !isNaN(v)).sort((a, b) => a - b)
     if (vals.length < 3) return []
     const step = Math.max(1, Math.floor(vals.length / 80))
     return vals.filter((_, i) => i % step === 0 || i === vals.length - 1).map((v, i, arr) => ({
       x: v.toFixed(2),
       cdf: (vals.indexOf(v) + 1) / vals.length,
     }))
-  }, [fullData, xCol])
+  }, [computeData, xCol])
 
   const handleRender = () => {
     if (chartType === 'histogram' || chartType === 'cdf') {

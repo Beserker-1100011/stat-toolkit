@@ -12,21 +12,21 @@ import { motion, AnimatePresence } from 'framer-motion'
 function inferColumns(data: Record<string, unknown>[]): ColumnMetadata[] {
   if (data.length === 0) return []
   const keys = Object.keys(data[0])
+  const sampleSize = Math.min(data.length, 2000)
+  const step = Math.floor(data.length / sampleSize) || 1
   return keys.map((key) => {
     let numericCount = 0
     let missingCount = 0
-    for (const row of data) {
+    for (let i = 0; i < data.length; i += step) {
+      const row = data[i]
       const val = row[key]
-      if (val === null || val === undefined || val === '') {
-        missingCount++
-      } else if (typeof val === 'number' || (!isNaN(Number(val)) && val !== '')) {
-        numericCount++
-      }
+      if (val === null || val === undefined || val === '') missingCount++
+      else if (typeof val === 'number' || (!isNaN(Number(val)) && val !== '')) numericCount++
     }
-    const totalValid = data.length - missingCount
+    const totalValid = Math.ceil(data.length / step) - missingCount
     const type: 'numeric' | 'categorical' =
       totalValid > 0 && numericCount / totalValid > 0.8 ? 'numeric' : 'categorical'
-    return { name: key, type, missingCount }
+    return { name: key, type, missingCount: Math.round(missingCount * step) }
   })
 }
 

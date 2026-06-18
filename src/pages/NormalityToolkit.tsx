@@ -62,14 +62,14 @@ function QQPlot({ vals }: { vals: number[] }) {
 }
 
 export default function NormalityToolkit() {
-  const { fullData, columnMetadata, addActivity } = useDatasetStore()
+  const { fullData, computeData, columnMetadata, addActivity } = useDatasetStore()
   const [col, setCol] = useState('')
   const numericCols = columnMetadata.filter((c) => c.type === 'numeric')
 
   const vals = useMemo(() => {
     if (!col) return []
-    return fullData.map((r) => Number(r[col])).filter((v) => !isNaN(v))
-  }, [fullData, col])
+    return computeData.map((r) => Number(r[col])).filter((v) => !isNaN(v))
+  }, [computeData, col])
 
   const tests = useMemo(() => {
     if (vals.length < 5) return null
