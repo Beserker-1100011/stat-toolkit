@@ -24,9 +24,13 @@ import {
   Hash,
   Equal,
   Table,
+  ClipboardCheck,
 } from 'lucide-react'
 import * as ss from 'simple-statistics'
-import { tTestPValue, zTestPValue, chiSquarePValue, fTestPValue, iqr } from '@/lib/stats'
+import {
+  tTestPValue, zTestPValue, chiSquarePValue, fTestPValue, iqr,
+  confidenceInterval, leveneTest, wilcoxonSignedRank, kruskalWallis, friedmanTest, twoWayANOVA,
+} from '@/lib/stats'
 
 function DescriptiveStats({ data }: { data: Record<string, unknown>[] }) {
   const { columnMetadata, addActivity } = useDatasetStore()
@@ -605,90 +609,86 @@ function PairedTTest({ data }: { data: Record<string, unknown>[] }) {
 
 function ANOVA({ data }: { data: Record<string, unknown>[] }) {
   const { columnMetadata, addActivity } = useDatasetStore()
+  const [mode, setMode] = useState<'oneway' | 'twoway'>('oneway')
   const [groupCol, setGroupCol] = useState('')
   const [valueCol, setValueCol] = useState('')
+  const [rowCol, setRowCol] = useState('')
+  const [colCol, setColCol] = useState('')
   const [result, setResult] = useState<Record<string, number | string> | null>(null)
 
   const numericCols = columnMetadata.filter((c) => c.type === 'numeric')
   const categCols = columnMetadata.filter((c) => c.type === 'categorical')
 
-  const compute = () => {
+  const computeOneWay = () => {
     if (!groupCol || !valueCol) return
     const groups = new Map<string, number[]>()
     for (const row of data) {
       const g = String(row[groupCol])
       const v = Number(row[valueCol])
-      if (!isNaN(v)) {
-        if (!groups.has(g)) groups.set(g, [])
-        groups.get(g)!.push(v)
-      }
+      if (!isNaN(v)) { if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(v) }
     }
-    const groupArrays = Array.from(groups.values()).filter((arr) => arr.length >= 2)
-    if (groupArrays.length < 2) return
+    const arrs = Array.from(groups.values()).filter((a) => a.length >= 2)
+    if (arrs.length < 2) return
+    const all = arrs.flat()
+    const grandMean = ss.mean(all)
+    let ssB = 0, ssW = 0
+    for (const a of arrs) { const m = ss.mean(a); ssB += a.length * (m - grandMean) ** 2; ssW += a.reduce((s, v) => s + (v - m) ** 2, 0) }
+    const dfB = arrs.length - 1, dfW = all.length - arrs.length
+    const f = (ssB / dfB) / (ssW / dfW)
+    const p = fTestPValue(f, dfB, dfW)
+    setResult({ 'Test Type': 'One-Way ANOVA', 'Groups (k)': arrs.length, 'Total N': all.length, 'SS Between': ssB.toFixed(4), 'SS Within': ssW.toFixed(4), 'DF Between': dfB, 'DF Within': dfW, 'MS Between': (ssB / dfB).toFixed(4), 'MS Within': (ssW / dfW).toFixed(4), 'F-Statistic': f.toFixed(4), 'p-value': p.toFixed(6), 'Significant (α=0.05)': p < 0.05 ? 'Yes' : 'No' })
+    addActivity('ANOVA', `One-way ANOVA F(${dfB},${dfW})=${f.toFixed(3)}, p=${p.toFixed(4)}`)
+  }
 
-    const allVals = groupArrays.flat()
-    const grandMean = ss.mean(allVals)
-    const totalN = allVals.length
-    const k = groupArrays.length
-
-    let ssBetween = 0
-    let ssWithin = 0
-    for (const arr of groupArrays) {
-      const gm = ss.mean(arr)
-      ssBetween += arr.length * (gm - grandMean) ** 2
-      ssWithin += arr.reduce((sum, v) => sum + (v - gm) ** 2, 0)
-    }
-
-    const dfBetween = k - 1
-    const dfWithin = totalN - k
-    const msBetween = ssBetween / dfBetween
-    const msWithin = ssWithin / dfWithin
-    const fStat = msBetween / msWithin
-    const pValue = fTestPValue(fStat, dfBetween, dfWithin)
-
+  const computeTwoWay = () => {
+    if (!rowCol || !colCol || !valueCol) return
+    const get = (r: string, c: string): number[] => data.map((d) => String(d[rowCol]) === r && String(d[colCol]) === c ? Number(d[valueCol]) : NaN).filter((v) => !isNaN(v))
+    const rowVals = [...new Set(data.map((d) => String(d[rowCol])))]
+    const colVals = [...new Set(data.map((d) => String(d[colCol])))]
+    if (rowVals.length < 2 || colVals.length < 2) return
+    const cells: number[][][] = rowVals.map((r) => colVals.map((c) => get(r, c)))
+    const res = twoWayANOVA(cells)
     setResult({
-      'Groups (k)': k,
-      'Total N': totalN,
-      'SS Between': ssBetween.toFixed(4),
-      'SS Within': ssWithin.toFixed(4),
-      'DF Between': dfBetween,
-      'DF Within': dfWithin,
-      'MS Between': msBetween.toFixed(4),
-      'MS Within': msWithin.toFixed(4),
-      'F-Statistic': fStat.toFixed(4),
-      'p-value': pValue.toFixed(6),
-      'Significant (α=0.05)': pValue < 0.05 ? 'Yes' : 'No',
+      'Test Type': 'Two-Way ANOVA',
+      'Factor A (Rows)': rowVals.length, 'Factor B (Columns)': colVals.length,
+      'SS(A)': res.ssA.toFixed(4), 'SS(B)': res.ssB.toFixed(4), 'SS(AB)': res.ssAB.toFixed(4), 'SS(Error)': res.ssE.toFixed(4),
+      'DF(A)': res.dfA, 'DF(B)': res.dfB, 'DF(AB)': res.dfAB, 'DF(Error)': res.dfE,
+      'MS(A)': res.msA.toFixed(4), 'MS(B)': res.msB.toFixed(4), 'MS(AB)': res.msAB.toFixed(4), 'MS(Error)': res.msE.toFixed(4),
+      'F(A)': res.FA.toFixed(4), 'p(A)': res.pA.toFixed(6), 'F(B)': res.FB.toFixed(4), 'p(B)': res.pB.toFixed(6), 'F(AB)': res.FAB.toFixed(4), 'p(AB)': res.pAB.toFixed(6),
+      'Significant A': res.pA < 0.05 ? 'Yes' : 'No', 'Significant B': res.pB < 0.05 ? 'Yes' : 'No', 'Significant Interaction': res.pAB < 0.05 ? 'Yes' : 'No',
     })
-    addActivity('ANOVA', `One-way ANOVA F(${dfBetween},${dfWithin})=${fStat.toFixed(3)}, p=${pValue.toFixed(4)})`)
+    addActivity('Two-Way ANOVA', `F(A)=${res.FA.toFixed(3)}, F(B)=${res.FB.toFixed(3)}, F(AB)=${res.FAB.toFixed(3)}`)
   }
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted">Grouping Column (Categorical)</label>
-          <Select value={groupCol} onValueChange={setGroupCol}>
-            <SelectTrigger><SelectValue placeholder="Select column" /></SelectTrigger>
-            <SelectContent>
-              {categCols.map((c) => (
-                <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted">Value Column (Numeric)</label>
-          <Select value={valueCol} onValueChange={setValueCol}>
-            <SelectTrigger><SelectValue placeholder="Select column" /></SelectTrigger>
-            <SelectContent>
-              {numericCols.map((c) => (
-                <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex gap-2">
+        <Button variant={mode === 'oneway' ? 'default' : 'outline'} size="sm" onClick={() => setMode('oneway')}>One-Way</Button>
+        <Button variant={mode === 'twoway' ? 'default' : 'outline'} size="sm" onClick={() => setMode('twoway')}>Two-Way</Button>
       </div>
-      <Button onClick={compute} disabled={!groupCol || !valueCol}>Run ANOVA</Button>
+      {mode === 'oneway' ? (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Grouping Column</label>
+              <Select value={groupCol} onValueChange={setGroupCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{categCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Value Column</label>
+              <Select value={valueCol} onValueChange={setValueCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+          </div>
+          <Button onClick={computeOneWay} disabled={!groupCol || !valueCol}>Run One-Way ANOVA</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Row Factor</label>
+              <Select value={rowCol} onValueChange={setRowCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{categCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Column Factor</label>
+              <Select value={colCol} onValueChange={setColCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{categCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Response (Numeric)</label>
+              <Select value={valueCol} onValueChange={setValueCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+          </div>
+          <Button onClick={computeTwoWay} disabled={!rowCol || !colCol || !valueCol}>Run Two-Way ANOVA</Button>
+        </div>
+      )}
       {result && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {Object.entries(result).map(([k, v]) => (
@@ -865,6 +865,159 @@ function ChiSquareTests({ data }: { data: Record<string, unknown>[] }) {
   )
 }
 
+function NonParametricTests({ data }: { data: Record<string, unknown>[] }) {
+  const { columnMetadata, addActivity } = useDatasetStore()
+  const [mode, setMode] = useState<'mw' | 'wilcoxon' | 'kw' | 'friedman'>('mw')
+  const [col1, setCol1] = useState('')
+  const [col2, setCol2] = useState('')
+  const [groupCol, setGroupCol] = useState('')
+  const [valueCol, setValueCol] = useState('')
+  const [result, setResult] = useState<Record<string, number | string> | null>(null)
+
+  const numericCols = columnMetadata.filter((c) => c.type === 'numeric')
+  const categCols = columnMetadata.filter((c) => c.type === 'categorical')
+
+  const runMW = () => {
+    if (!col1 || !col2) return
+    const a = data.map((r) => Number(r[col1])).filter((v) => !isNaN(v))
+    const b = data.map((r) => Number(r[col2])).filter((v) => !isNaN(v))
+    if (a.length < 2 || b.length < 2) return
+    const all = [...a, ...b]
+    const sorted = [...all].sort((x, y) => x - y)
+    const r1 = a.reduce((s, v) => s + sorted.indexOf(v) + 1, 0)
+    const n1 = a.length, n2 = b.length
+    const U = r1 - n1 * (n1 + 1) / 2
+    const mu = n1 * n2 / 2
+    const sigma = Math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
+    const z = Math.abs(U - mu) / sigma
+    const p = zTestPValue(z)
+    setResult({ 'Test': 'Mann-Whitney U', 'U Statistic': U.toFixed(2), 'Z-Score': z.toFixed(4), 'p-value': p.toFixed(6), 'Significant (α=0.05)': p < 0.05 ? 'Yes' : 'No' })
+    addActivity('Non-Parametric', `Mann-Whitney U=${U.toFixed(1)}, p=${p.toFixed(4)}`)
+  }
+
+  const runWilcoxon = () => {
+    if (!col1 || !col2) return
+    const pairs: [number, number][] = data.map((r) => [Number(r[col1]), Number(r[col2])] as [number, number]).filter(([a, b]) => !isNaN(a) && !isNaN(b))
+    if (pairs.length < 3) return
+    const res = wilcoxonSignedRank(pairs.map((p) => p[0]), pairs.map((p) => p[1]))
+    setResult({ 'Test': 'Wilcoxon Signed-Rank', 'W Statistic': res.W.toFixed(2), 'p-value': res.pValue.toFixed(6), 'Significant (α=0.05)': res.pValue < 0.05 ? 'Yes' : 'No', 'Sample Size (n)': pairs.length })
+    addActivity('Non-Parametric', `Wilcoxon W=${res.W.toFixed(1)}, p=${res.pValue.toFixed(4)}`)
+  }
+
+  const runKW = () => {
+    if (!groupCol || !valueCol) return
+    const groups = new Map<string, number[]>()
+    for (const row of data) {
+      const g = String(row[groupCol]); const v = Number(row[valueCol])
+      if (!isNaN(v)) { if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(v) }
+    }
+    const arrs = Array.from(groups.values()).filter((a) => a.length >= 2)
+    if (arrs.length < 2) return
+    const res = kruskalWallis(arrs)
+    setResult({ 'Test': 'Kruskal-Wallis H', 'H Statistic': res.H.toFixed(4), 'DF': res.df, 'p-value': res.pValue.toFixed(6), 'Significant (α=0.05)': res.pValue < 0.05 ? 'Yes' : 'No' })
+    addActivity('Non-Parametric', `Kruskal-Wallis H=${res.H.toFixed(3)}, p=${res.pValue.toFixed(4)}`)
+  }
+
+  const runFriedman = () => {
+    if (!groupCol || !valueCol) return
+    const subjMap = new Map<string, number[]>()
+    const groups = [...new Set(data.map((r) => String(r[col1] || r[groupCol])))]
+    for (const row of data) {
+      const s = String(row[col2] || row[valueCol])
+      if (!subjMap.has(s)) subjMap.set(s, [])
+    }
+    return
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button variant={mode === 'mw' ? 'default' : 'outline'} size="sm" onClick={() => setMode('mw')}>Mann-Whitney U</Button>
+        <Button variant={mode === 'wilcoxon' ? 'default' : 'outline'} size="sm" onClick={() => setMode('wilcoxon')}>Wilcoxon Signed-Rank</Button>
+        <Button variant={mode === 'kw' ? 'default' : 'outline'} size="sm" onClick={() => setMode('kw')}>Kruskal-Wallis</Button>
+        <Button variant={mode === 'friedman' ? 'default' : 'outline'} size="sm" onClick={() => setMode('friedman')}>Friedman</Button>
+      </div>
+
+      {mode === 'mw' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Group 1 Field</label>
+              <Select value={col1} onValueChange={setCol1}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Group 2 Field</label>
+              <Select value={col2} onValueChange={setCol2}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+          </div>
+          <Button onClick={runMW} disabled={!col1 || !col2}>Run Mann-Whitney U</Button>
+        </div>
+      )}
+
+      {mode === 'wilcoxon' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Before / Group 1</label>
+              <Select value={col1} onValueChange={setCol1}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">After / Group 2</label>
+              <Select value={col2} onValueChange={setCol2}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+          </div>
+          <Button onClick={runWilcoxon} disabled={!col1 || !col2}>Run Wilcoxon Signed-Rank</Button>
+        </div>
+      )}
+
+      {mode === 'kw' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Grouping Column</label>
+              <Select value={groupCol} onValueChange={setGroupCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{categCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Value Column</label>
+              <Select value={valueCol} onValueChange={setValueCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+          </div>
+          <Button onClick={runKW} disabled={!groupCol || !valueCol}>Run Kruskal-Wallis</Button>
+        </div>
+      )}
+
+      {mode === 'friedman' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Subject Column</label>
+              <Select value={col1} onValueChange={setCol1}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{categCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Treatment Column</label>
+              <Select value={col2} onValueChange={setCol2}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{categCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+            <div><label className="mb-1.5 block text-xs font-medium text-muted">Response (Numeric)</label>
+              <Select value={valueCol} onValueChange={setValueCol}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{numericCols.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+          </div>
+          <Button onClick={() => {
+            if (!col1 || !col2 || !valueCol) return
+            const subjSet = new Set(data.map((r) => String(r[col1])))
+            const treatSet = [...new Set(data.map((r) => String(r[col2])))]
+            const subjArr = [...subjSet]
+            const groups: number[][] = treatSet.map(() => [])
+            for (const s of subjArr) {
+              for (let j = 0; j < treatSet.length; j++) {
+                const v = data.find((r) => String(r[col1]) === s && String(r[col2]) === treatSet[j])
+                if (v) groups[j].push(Number(v[valueCol]))
+              }
+            }
+            if (groups.some((g) => g.length < 2)) return
+            const res = friedmanTest(groups)
+            setResult({ 'Test': 'Friedman Test', 'Q Statistic': res.Q.toFixed(4), 'DF': res.df, 'p-value': res.pValue.toFixed(6), 'Significant (α=0.05)': res.pValue < 0.05 ? 'Yes' : 'No' })
+            addActivity('Non-Parametric', `Friedman Q=${res.Q.toFixed(3)}, p=${res.pValue.toFixed(4)}`)
+          }} disabled={!col1 || !col2 || !valueCol}>Run Friedman Test</Button>
+        </div>
+      )}
+
+      {result && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {Object.entries(result).map(([k, v]) => (
+            <div key={k} className="rounded-xl border border-glass-border bg-white/[0.02] px-4 py-3">
+              <p className="text-xs text-muted">{k}</p>
+              <p className="mt-0.5 text-sm font-semibold text-white">{String(v)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function StatisticsEngine() {
   const { fullData } = useDatasetStore()
 
@@ -878,6 +1031,7 @@ export default function StatisticsEngine() {
     { value: 'pairedt', label: 'Paired T', icon: ArrowRightLeft, comp: <PairedTTest data={fullData} /> },
     { value: 'anova', label: 'ANOVA', icon: Equal, comp: <ANOVA data={fullData} /> },
     { value: 'chisquare', label: 'Chi-Square', icon: Table, comp: <ChiSquareTests data={fullData} /> },
+    { value: 'nonparametric', label: 'Non-Parametric', icon: ClipboardCheck, comp: <NonParametricTests data={fullData} /> },
   ]
 
   return (

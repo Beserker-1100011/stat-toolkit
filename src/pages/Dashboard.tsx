@@ -6,10 +6,18 @@ import {
   Columns3,
   Activity,
   FlaskConical,
+  Table,
+  AlertTriangle,
 } from 'lucide-react'
 
 export default function Dashboard() {
   const { fullData, columnMetadata, activityLog, fileName } = useDatasetStore()
+
+  const numericCount = columnMetadata.filter((c) => c.type === 'numeric').length
+  const categCount = columnMetadata.filter((c) => c.type === 'categorical').length
+  const unknownCount = columnMetadata.filter((c) => c.type === 'unknown').length
+  const totalMissing = columnMetadata.reduce((s, c) => s + c.missingCount, 0)
+  const missingPct = fullData.length > 0 ? ((totalMissing / (fullData.length * columnMetadata.length)) * 100).toFixed(1) : '0'
 
   const stats = [
     {
@@ -69,6 +77,64 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {fullData.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Dataset Summary</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="rounded-xl border border-glass-border bg-white/[0.02] px-4 py-3">
+                <p className="text-xs text-muted">Numeric Columns</p>
+                <p className="mt-0.5 text-lg font-semibold text-white">{numericCount}</p>
+              </div>
+              <div className="rounded-xl border border-glass-border bg-white/[0.02] px-4 py-3">
+                <p className="text-xs text-muted">Categorical Columns</p>
+                <p className="mt-0.5 text-lg font-semibold text-white">{categCount}</p>
+              </div>
+              <div className="rounded-xl border border-glass-border bg-white/[0.02] px-4 py-3">
+                <p className="text-xs text-muted">Unknown Type</p>
+                <p className="mt-0.5 text-lg font-semibold text-white">{unknownCount}</p>
+              </div>
+              <div className="rounded-xl border border-glass-border bg-white/[0.02] px-4 py-3">
+                <p className="text-xs text-muted">Missing Values</p>
+                <p className="mt-0.5 text-lg font-semibold text-white">{totalMissing} ({missingPct}%)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {fullData.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Column Details</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-xl border border-glass-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-glass-border bg-white/[0.02]">
+                    <th className="px-4 py-3 text-left text-muted">Column</th>
+                    <th className="px-4 py-3 text-left text-muted">Type</th>
+                    <th className="px-4 py-3 text-left text-muted">Missing</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {columnMetadata.map((c) => (
+                    <tr key={c.name} className="border-b border-glass-border last:border-0">
+                      <td className="px-4 py-2.5 text-white">{c.name}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${c.type === 'numeric' ? 'bg-emerald-500/20 text-emerald-400' : c.type === 'categorical' ? 'bg-violet-500/20 text-violet-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                          {c.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-white/70">{c.missingCount} {c.missingCount > 0 && <AlertTriangle className="ml-1 inline h-3 w-3 text-amber-400" />}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

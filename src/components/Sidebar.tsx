@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   Upload,
@@ -12,8 +13,10 @@ import {
   Sparkles,
   Terminal,
   FlaskConical,
+  Dice1,
+  ClipboardCheck,
+  FileSpreadsheet,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -22,9 +25,12 @@ const navItems = [
   { to: '/ml', icon: Brain, label: 'Machine Learning' },
   { to: '/viz', icon: BarChart3, label: 'Visualizations' },
   { to: '/distributions', icon: Bell, label: 'Distributions' },
+  { to: '/simulators', icon: Dice1, label: 'Simulators' },
   { to: '/clt', icon: Repeat, label: 'CLT Simulator' },
+  { to: '/normality', icon: ClipboardCheck, label: 'Normality' },
   { to: '/timeseries', icon: TrendingUp, label: 'Time Series' },
   { to: '/text-analysis', icon: FileText, label: 'Text Analysis' },
+  { to: '/report', icon: FileSpreadsheet, label: 'Report' },
   { to: '/insights', icon: Sparkles, label: 'AI Insights' },
   { to: '/cli', icon: Terminal, label: 'CLI Guide' },
 ]
